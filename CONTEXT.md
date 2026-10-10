@@ -42,6 +42,28 @@ TTFT（time to first token）是從送出 request 到收到第 1 個 token 的�
 **Ragged batch**:
 把多個 request 的 token 直接接成一維 `[num_tokens, hidden]`、不做 padding 的 batch。request 的邊界由另外傳遞的 metadata 標示。
 
+## Serving 架構（Ch1）
+
+**Continuous batching**:
+以每一次 forward（iteration）為單位重新組 batch 的排程方式：生成完的 request 立即離開，新的 request 隨時可以加入。
+_Avoid_: dynamic batching（這個詞在其他框架裡指的是「等滿一批再跑」，意思不同）
+
+**Request / uid**:
+一次使用者請求。`uid` 是 API server 發出的全域遞增編號，系統中每一則訊息都靠它辨識是哪個 request。在 scheduler 內部，這個 request 被表示為 `Req`。
+
+**Scheduler**:
+每張 GPU 上的一個主迴圈 process，每一步決定要跑哪個 batch，並管理 request 的 KV 資源。
+_Avoid_: engine（Engine 是 scheduler 底下實際執行 forward 的物件）
+
+**Engine**:
+scheduler 擁有的計算執行者，負責模型、KV pool、attention backend、CUDA graph，以及 forward 與 sampling。
+
+**TP rank**:
+tensor parallelism 中的一張 GPU 及其 scheduler process。rank 0（primary）是唯一負責與 frontend 溝通的 rank。
+
+**Abort**:
+使用者斷線或取消時，從 frontend 一路傳到 scheduler、要求釋放該 request 資源的流程。
+
 ## 關係
 
 - 一個 **Upstream** 包含一個 **Frontend** 和一個 **Backend**
