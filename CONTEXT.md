@@ -22,6 +22,26 @@ _Avoid_: engine（Engine 是後端裡的一個具體類別，不等於整個後�
 **Parity（一致性）**:
 在相同的後端與輸入下，Rust 前端與 Python 前端的輸出完全相同。
 
+## 推論基礎（Ch0）
+
+**KV cache**:
+每個 token 在每一層算出的 K、V 向量，存起來供後續 token 的 attention 重複使用。它之所以成立，是因為兩個條件：權重固定，加上 causal mask。
+_Avoid_: cache（太籠統；系統裡還有 prefix cache）
+
+**Prefill**:
+一個 request 的第一個階段：把整段 prompt 一次送進模型，寫入 KV cache，並產出第 1 個 token。瓶頸在算力（compute-bound）。
+_Avoid_: 預處理、encode
+
+**Decode**:
+prefill 之後的階段：每一步只送入 1 個新 token，產出下一個 token。瓶頸在顯存頻寬（memory-bound）。
+_Avoid_: 生成（太籠統，prefill 也會產出 token）
+
+**TTFT / TPOT**:
+TTFT（time to first token）是從送出 request 到收到第 1 個 token 的時間，主要由 prefill 決定。TPOT（time per output token）是之後每個 token 之間的間隔，主要由 decode 決定。
+
+**Ragged batch**:
+把多個 request 的 token 直接接成一維 `[num_tokens, hidden]`、不做 padding 的 batch。request 的邊界由另外傳遞的 metadata 標示。
+
 ## 關係
 
 - 一個 **Upstream** 包含一個 **Frontend** 和一個 **Backend**
