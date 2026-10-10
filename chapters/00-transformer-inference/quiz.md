@@ -35,3 +35,14 @@
 | R2.7 | 🟡 | 「權重只讀一次、大家共用」正確。失效條件的方向對了（context 很長、KV 的量追上權重），但用詞錯了：KV **不會重算**，是**每一步都要讀一次**。 |
 
 → 追問 R2.4、R2.5、R2.6b、R2.7
+
+## 追問
+
+| 題 | 結果 | 註記 |
+|---|---|---|
+| F1 | ✅ | 順序是 RMSNorm → attention → RMSNorm → MLP。開頭相同的 prefix 可以共用 KV，因為位置相同，而且前面的 token 也完全相同（causal）。補充：residual 一共加回兩次，分別在 ③（加上 attention 的輸出）和下一層的 ①（加上 MLP 的輸出）。 |
+| F2 | ✅ | 32,768 B（32 KiB）/ 131,072 tokens / MHA 下為 32,768 tokens |
+| F3 | ✅ | 浪費比例 49% |
+| F4 | 📖 | 由我講解：每一步 decode 都要「**讀取**」所有 request 的 KV，所以 step 時間 ≈ (權重 + Σ KV) / 頻寬。KV 總量追上權重之後，step 時間就會隨 batch 變大；batch 大到一定程度後，瓶頸則會轉成 compute-bound。 |
+
+**Ch0 通過 ✅**
