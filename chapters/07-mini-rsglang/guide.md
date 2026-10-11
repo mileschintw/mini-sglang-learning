@@ -421,7 +421,7 @@ S1 的 benchmark 就是「128 個 agent，大量中途取消」，所以取消�
 | `Immediate` | 立刻送 abort |
 | `Deferred`（**預設**） | 先等第一個 token（或 timeout）再送 abort |
 
-為什麼預設是比較「慢」的 Deferred？Phase 6 在 GPU 上做 abort 壓力測試時，`Immediate` 模式**讓 upstream 的 scheduler crash 了**，而且找不到能在 scheduler 裡小幅修補的地方（[`main.rs:64-76`](https://github.com/LiyangTseng/mini-rsglang/blob/c09b315/crates/rsg-server/src/main.rs#L64-L76)）。backend 是凍結的，只能繞過去。Phase 6／7 的比較兩邊都用同一個設定，所以仍然公平。
+為什麼預設是比較「慢」的 Deferred？Phase 6 在 GPU 上做 abort 壓力測試時，`Immediate` 模式**讓 upstream 的 scheduler crash 了**，而且找不到能在 scheduler 裡小幅修補的地方（[`main.rs:64-76`](https://github.com/LiyangTseng/mini-rsglang/blob/c09b315/crates/rsg-server/src/main.rs#L64-L76)）。backend 是凍結的，只能繞過去。注意這不是「兩邊同一個設定」：Python 前端沒有這個開關，它在下一次寫 chunk 時才發現斷線，再 sleep 0.1 秒送 abort。parity report 明確指出兩者不是同一個旋鈕，讀 S1 的數字時要記得這個不對稱。
 
 ### 7.5 慢 consumer：寧可失敗也不輸出錯的字
 
