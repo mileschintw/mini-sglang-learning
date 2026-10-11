@@ -18,8 +18,8 @@
 | 3 ★ | Radix prefix cache：match / insert / split / LRU evict / ref_count | `kvcache/radix_cache.py` | 1.5h | ⬜ |
 | 4 ★ | Scheduler：prefill 優先、token budget、chunked prefill、overlap scheduling | `scheduler/*.py` | 2h | ⬜ |
 | 5 | Engine 與 model forward：attention backend、CUDA graph、sampling、TP（帶過） | `engine/`, `attention/` | 1h | ⬜ |
-| 6 | 前端與 IPC：ZMQ、msgpack、tokenizer / detokenizer、API server | `message/`, `utils/mp.py`, `tokenizer/`, `server/api_server.py` | 1h | ⬜ |
-| 7 ★ | mini-rsglang：架構、各 crate、wire parity、lifecycle FSM、writer thread、FINDINGS | `crates/`, `docs/benchmarks/FINDINGS.md` | 2h | ⬜ |
+| 6 | 前端與 IPC：已併入 Ch7 的 §2 | `message/`, `utils/mp.py`, `tokenizer/`, `server/api_server.py` | — | ↪ Ch7 |
+| 7 ★ | [mini-rsglang](chapters/07-mini-rsglang/guide.md)（含 Ch6）：Python 前端與 IPC、架構、wire parity、request 旅程、lifecycle FSM、取消、驗證、FINDINGS 與 Phase 8 | `crates/`, `docs/benchmarks/FINDINGS.md` | 2h | ⬜ |
 | 8 | 選題與動工計畫：已用 grilling 決定 → [Phase 8 計畫](plans/2026-10-10-mini-rsglang-phase8.md)（P99 TTFT root cause） | — | — | ✅ |
 
 ## 時程
