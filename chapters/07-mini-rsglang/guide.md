@@ -48,14 +48,34 @@ Ch1 已經看過 process 架構和訊息名稱。這一節補上 mini-rsglang �
 
 [`server/args.py:18-47`](https://github.com/sgl-project/mini-sglang/blob/9a91cfa/python/minisgl/server/args.py#L18-L47)、[`server/launch.py:71-103`](https://github.com/sgl-project/mini-sglang/blob/9a91cfa/python/minisgl/server/launch.py#L71-L103)：
 
-```
---num-tokenizer=0（預設）：
-  api_server ──PUSH──▶ [tokenizer/detokenizer 合一的 worker] ──PUSH──▶ scheduler
-       ▲                  ▲ 一個 PULL socket 同時收：                    │
-       └────UserReply─────┘ TokenizeMsg、AbortMsg、scheduler 的 DetokenizeMsg ◀─┘
+**`--num-tokenizer=0`（預設）**
 
---num-tokenizer=N（N > 0）：
-  api_server ──PUSH（round-robin）──▶ tokenizer × N ──▶ scheduler ──▶ detokenizer × 1 ──▶ api_server
+```mermaid
+flowchart LR
+    API["api_server<br/>FastAPI，單一 event loop"]
+    TK["tokenizer + detokenizer 合一的 worker<br/>同一個 process、同一個 PULL socket"]
+    SCH["scheduler rank 0"]
+    API -->|"TokenizeMsg / AbortMsg"| TK
+    TK -->|"UserMsg / AbortBackendMsg"| SCH
+    SCH -->|"BatchTokenizerMsg"| TK
+    TK -->|"UserReply"| API
+```
+
+**`--num-tokenizer=N`（N > 0）**
+
+```mermaid
+flowchart LR
+    API["api_server"]
+    T1["tokenizer 1"]
+    TN["tokenizer N"]
+    SCH["scheduler rank 0"]
+    DT["detokenizer × 1"]
+    API -->|"PUSH round-robin"| T1
+    API -->|"PUSH round-robin"| TN
+    T1 -->|"UserMsg"| SCH
+    TN -->|"UserMsg"| SCH
+    SCH -->|"BatchTokenizerMsg"| DT
+    DT -->|"UserReply"| API
 ```
 
 - `N=0`：tokenize、detokenize、轉送 abort **全部擠在同一個 process、同一個 PULL socket** 上依序處理。encode 一個很長的 prompt 時，所有串流的 detokenize 都要等它
@@ -134,15 +154,26 @@ Phase 2 用 py-spy 和 GC hook 量過 Python 前端（[`docs/benchmarks/baseline
 
 用 `python -m rsglang.launch --frontend rust ...` 啟動時（[`launch.py:138-295`](https://github.com/LiyangTseng/mini-rsglang/blob/c09b315/python/rsglang/launch.py#L138-L295)）：
 
-```
-launcher（Python，rsglang.launch）
- ├─ scheduler rank 0 … N-1   ← upstream 原封不動的 Python process（mp.Process）
- └─ rsg-server               ← Rust，一個 process（subprocess.Popen，stdin 接到 launcher）
-     ├─ tokio runtime：worker threads × CPU 核心數   ← HTTP handler、每個 request 的 driver task、registry actor
-     ├─ tokio blocking pool                           ← spawn_blocking 的工作（例如 decoder clone）
-     ├─ OS thread「tx-zmq」                           ← 唯一一個寫 backend socket 的 thread
-     ├─ OS thread「rx-zmq」                           ← 唯一一個讀 detokenizer socket 的 thread
-     └─ OS thread（stdin reader）                     ← 讀 handshake、偵測 launcher 是否還活著
+```mermaid
+flowchart TB
+    L["launcher<br/>python -m rsglang.launch，frontend 設為 rust"]
+    subgraph SCHED["scheduler ranks：upstream Python，原封不動"]
+        S0["scheduler rank 0"]
+    end
+    subgraph RS["rsg-server：一個 Rust process"]
+        TW["tokio worker threads × CPU 核心數<br/>HTTP handler、每個 request 的 driver task、registry actor"]
+        BP["tokio blocking pool<br/>spawn_blocking 的工作，例如 decoder clone"]
+        TX["OS thread：tx-zmq<br/>唯一寫 backend socket"]
+        RX["OS thread：rx-zmq<br/>唯一讀 detokenizer socket"]
+        SI["OS thread：stdin reader<br/>讀 handshake、偵測 launcher 是否還活著"]
+    end
+    L -->|"mp.Process"| S0
+    L -->|"subprocess.Popen，handshake 寫進 stdin"| SI
+    TW -->|"bounded queue 1024"| TX
+    TX -->|"PUSH 到 minisgl_0"| S0
+    S0 -->|"PUSH 到 minisgl_1"| RX
+    RX -->|"每個 uid 一個 broadcast channel"| TW
+    TW -->|"spawn_blocking"| BP
 ```
 
 跟 Python 前端對照：
@@ -231,6 +262,31 @@ a3 756964                            ← "uid"
 
 以串流的 `POST /v1/chat/completions` 為例。請一站一站點開連結對照著讀，**特別注意每一站跑在哪個 thread 上**。
 
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant W as tokio worker（handler / driver task）
+    participant B as tokio blocking pool
+    participant TX as tx-zmq
+    participant S as Python scheduler
+    participant RX as rx-zmq
+    C->>W: ① POST，解析 JSON
+    W->>W: ② uid = fetch_add，spawn driver task
+    W->>W: ③ encode：同步執行，佔住 worker
+    W->>W: ④ 長度與取消檢查
+    W->>B: ⑤ spawn_blocking：clone 整份 tokenizer
+    B-->>W: decoder
+    W->>RX: ⑥ register(uid)
+    W->>TX: ⑦ submit：UserMsg 進 bounded queue
+    W-->>C: ⑧ HTTP 200 + SSE stream
+    TX->>S: ⑨ 合併成 batch，msgpack，ZMQ send
+    S->>S: ⑩ 排隊 + prefill
+    S->>RX: BatchTokenizerMsg
+    RX->>W: ⑪ 依 uid 送進 broadcast channel
+    W->>W: ⑫ decoder.step，回報 Decoding（記錄 TTFT）
+    W-->>C: ⑬ data: {...}
+```
+
 | 站 | 發生什麼事 | 跑在哪裡 | 程式碼 |
 |---|---|---|---|
 | ① | axum handler 解析 JSON（解析失敗回 422，**不消耗 uid**），呼叫 `engine.start` | tokio worker | [`http/chat.rs:203-216`](https://github.com/LiyangTseng/mini-rsglang/blob/c09b315/crates/rsg-server/src/http/chat.rs#L203-L216) |
@@ -286,10 +342,24 @@ client 量到的 TTFT 是從送出 HTTP request 到收到第一個 `data:` chunk
 
 [`fsm/state.rs:10-53`](https://github.com/LiyangTseng/mini-rsglang/blob/c09b315/crates/rsg-server/src/fsm/state.rs#L10-L53)：
 
-```
-Received ──▶ Tokenizing ──▶ Submitted ──▶ Decoding ──▶ Finished
-   │              │              │             │
-   └──────────────┴──────────────┴─────────────┴──▶ Cancelled / Failed
+```mermaid
+stateDiagram-v2
+    [*] --> Received
+    Received --> Tokenizing
+    Tokenizing --> Submitted
+    Submitted --> Decoding: 第一個 token，記錄 TTFT
+    Decoding --> Finished
+    Received --> Cancelled
+    Tokenizing --> Cancelled
+    Submitted --> Cancelled
+    Decoding --> Cancelled
+    Received --> Failed
+    Tokenizing --> Failed
+    Submitted --> Failed
+    Decoding --> Failed
+    Finished --> [*]
+    Cancelled --> [*]
+    Failed --> [*]
 ```
 
 - 7 × 7 = 49 種 (from, to) 組合裡，**只有 12 種合法**。終止狀態（Finished、Cancelled、Failed）不能再轉移到任何狀態，也不能跳站（例如 `Received → Submitted`）

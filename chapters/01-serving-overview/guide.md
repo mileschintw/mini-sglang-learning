@@ -74,14 +74,15 @@ GPU: [ABC][ABC][AB D][B D][B D][B DE][B E][B E]
 
 不管是 vLLM、SGLang 還是 mini-sglang，拆開來都是這四塊：
 
-```
-┌────────────┐   ┌───────────────┐   ┌──────────────────┐   ┌────────────────┐
-│  Frontend  │──▶│   Scheduler   │──▶│ KV cache manager │   │ Engine / Model │
-│ HTTP API   │   │ 每一步決定     │   │ 誰的 KV 放在哪、  │   │ runner          │
-│ tokenize   │◀──│ 跑哪些 request │◀─▶│ 還剩多少空間、    │◀─▶│ 真正跑 forward │
-│ detokenize │   │               │   │ prefix 共用       │   │ 和 sampling     │
-└────────────┘   └───────────────┘   └──────────────────┘   └────────────────┘
-   Ch6 / Ch7          Ch4                 Ch2 / Ch3                Ch5
+```mermaid
+flowchart LR
+    F["Frontend<br/>HTTP API、tokenize、detokenize<br/>Ch6 / Ch7"]
+    S["Scheduler<br/>每一步決定跑哪些 request<br/>Ch4"]
+    K["KV cache manager<br/>誰的 KV 放在哪、還剩多少空間、prefix 共用<br/>Ch2 / Ch3"]
+    E["Engine / Model runner<br/>真正跑 forward 和 sampling<br/>Ch5"]
+    F <--> S
+    S <--> K
+    K <--> E
 ```
 
 對照 [`CONTEXT.md`](../../CONTEXT.md) 的術語：最左邊的 **Frontend** 是 mini-rsglang 用 Rust 改寫的部分；右邊三塊合起來就是 **Backend**，在 mini-rsglang 中仍然是原封不動的 upstream Python。
@@ -92,29 +93,19 @@ GPU: [ABC][ABC][AB D][B D][B D][B DE][B E][B E]
 
 ### 4.1 有哪些 process
 
-```
-                         HTTP（使用者）
-                               │
-                 ┌─────────────▼─────────────┐
-                 │  API Server（主 process）  │  FastAPI + uvicorn
-                 │  FrontendManager           │  api_server.py
-                 └──┬─────────────────────▲──┘
-        TokenizeMsg │                     │ UserReply
-        AbortMsg    │                     │
-                 ┌──▼─────────────────────┴──┐
-                 │ Tokenizer / Detokenizer   │  tokenizer/server.py
-                 │ worker                    │  預設 num_tokenizer=0 時，兩者合併成同一個 process
-                 └──┬─────────────────────▲──┘
-        UserMsg     │                     │ DetokenizeMsg
-        AbortBackend│                     │（每產出一個 token 就送一則）
-                 ┌──▼─────────────────────┴──┐
-                 │  Scheduler（TP rank 0）    │  scheduler/scheduler.py
-                 │   └─ Engine（在 GPU 0 上） │  engine/engine.py
-                 └──┬────────────────────────┘
-                    │ 用 ZMQ PUB/SUB 廣播收到的訊息（只有 --tp > 1 時才有）
-                 ┌──▼────────────────────────┐
-                 │  Scheduler（TP rank 1…）   │  每張 GPU 一個
-                 └───────────────────────────┘
+```mermaid
+flowchart TB
+    U(["使用者 HTTP"])
+    API["API Server（主 process）<br/>FastAPI + uvicorn、FrontendManager<br/>api_server.py"]
+    TOK["Tokenizer / Detokenizer worker<br/>tokenizer/server.py<br/>預設 num_tokenizer=0 時兩者合併成同一個 process"]
+    S0["Scheduler（TP rank 0）<br/>scheduler/scheduler.py<br/>內含 Engine，跑在 GPU 0"]
+    S1["Scheduler（TP rank 1…）<br/>每張 GPU 一個"]
+    U --> API
+    API -->|"TokenizeMsg、AbortMsg"| TOK
+    TOK -->|"UserReply"| API
+    TOK -->|"UserMsg、AbortBackendMsg"| S0
+    S0 -->|"DetokenizeMsg：每產出一個 token 送一則"| TOK
+    S0 -.->|"ZMQ PUB/SUB 廣播：只有 tp 大於 1 時才有"| S1
 ```
 
 **預設設定**（`--tp 1`、`num_tokenizer=0`）下只有 **3 個 process**：API server、tokenizer/detokenizer、scheduler。
@@ -183,6 +174,39 @@ POST /v1/chat/completions
 ```
 
 假設套上 chat template 後的 prompt 是 **10 個 token**。
+
+先看全貌，下面再一站一站展開：
+
+```mermaid
+sequenceDiagram
+    participant U as 使用者
+    participant A as API Server
+    participant T as Tokenizer / Detokenizer
+    participant S as Scheduler
+    participant G as GPU（Engine）
+    U->>A: ① POST /v1/chat/completions
+    A->>T: TokenizeMsg（帶著 uid）
+    A-->>U: 立刻回傳 StreamingResponse
+    T->>S: ② chat template + encode，送 UserMsg
+    S->>S: ③ 檢查長度，放進 pending
+    S->>S: ④ 排程：prefill 優先
+    S->>G: ⑤ forward + sample
+    G-->>S: next token
+    S->>T: ⑥ 收尾，送 DetokenizeMsg
+    T->>A: ⑦ incremental detokenize，送 UserReply
+    A-->>U: ⑧ SSE chunk
+    loop 之後的每個 token：重複 ⑤ 到 ⑧
+        S->>G: decode 一步
+        S->>T: DetokenizeMsg
+        T->>A: UserReply
+        A-->>U: SSE chunk
+    end
+    opt 使用者中途關掉網頁
+        A->>T: AbortMsg
+        T->>S: AbortBackendMsg
+        S->>S: 釋放 row 和 KV
+    end
+```
 
 ### 第 ① 站：API Server 收件
 

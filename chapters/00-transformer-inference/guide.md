@@ -20,9 +20,13 @@
 
 一次 forward 的完整流程如下：
 
-```
-token ids ─embed─▶ x ─[Layer 0]─▶ x ─[Layer 1]─▶ … ─[Layer L-1]─▶ norm ─lm_head─▶ logits ─sample─▶ next token
- (整數)          (向量)                                                     (vocab 個分數)
+```mermaid
+flowchart LR
+    ids["token ids（整數）"] -->|embed| x0["x（向量）"]
+    x0 --> L0["Layer 0"] --> L1["Layer 1"] --> Ld["…"] --> Ln["Layer L-1"]
+    Ln --> N["norm"] -->|lm_head| lg["logits（vocab 個分數）"]
+    lg -->|sample| nt["next token"]
+    nt -.->|"接回輸入：autoregressive"| ids
 ```
 
 | 步驟 | 做什麼 | mini-sglang 程式碼 |
@@ -138,6 +142,15 @@ i=2 (貓)    ✓         ✓        ✓
 
 所以只要把算過的 K、V 存起來，下一步直接拿來用就好。**這就是 KV cache。**
 
+```mermaid
+flowchart LR
+    new["新 token「。」 i=3"] --> qkv["只算 q₃、k₃、v₃"]
+    qkv -->|"k₃、v₃ 存進去"| cache[("KV cache<br/>k₀..k₂、v₀..v₂ 是上一步存好的")]
+    qkv -->|q₃| att["attention"]
+    cache -->|"讀出 k₀..k₃、v₀..v₃"| att
+    att --> out["「。」在這一層的輸出"]
+```
+
 > **兩個必要條件**：(1) 模型權重不變；(2) causal mask，也就是舊 token 看不到新 token。
 >
 > 反例：BERT 這類**雙向**模型沒有 causal mask，每個 token 都看得到所有其他 token。新 token 一加入，舊 token 在第 2 層以後的向量全部會改變，K、V 都得重算，KV cache 就不成立了。
@@ -171,11 +184,32 @@ i=2 (貓)    ✓         ✓        ✓
 
 最早的 Multi-Head Attention（MHA）中，每個 Q head 都配有自己的一組 K、V head。**GQA 讓好幾個 Q head 共用同一組 K、V head**：
 
+```mermaid
+flowchart LR
+    subgraph MHA["MHA：每個 Q head 一組 KV"]
+        direction TB
+        mq0[Q0] --> mk0[KV0]
+        mq1[Q1] --> mk1[KV1]
+        mq2[Q2] --> mk2[KV2]
+        mq3[Q3] --> mk3[KV3]
+    end
+    subgraph GQA["GQA：每 2 個 Q head 共用一組 KV"]
+        direction TB
+        gq0[Q0] --> gk0[KV0]
+        gq1[Q1] --> gk0
+        gq2[Q2] --> gk1[KV1]
+        gq3[Q3] --> gk1
+    end
+    subgraph MQA["MQA：所有 Q head 共用一組 KV"]
+        direction TB
+        qq0[Q0] --> qk0[KV0]
+        qq1[Q1] --> qk0
+        qq2[Q2] --> qk0
+        qq3[Q3] --> qk0
+    end
 ```
-MHA:  Q head  0 1 2 3 4 5 …15     K/V head  0 1 2 3 4 5 …15    （16 組 KV）
-GQA:  Q head  0 1 | 2 3 | … |14 15  K/V head  0  |  1  | … |  7   （8 組 KV，每 2 個 Q head 共用 1 組）
-MQA:  所有 Q head 共用 1 組 KV                                    （1 組 KV）
-```
+
+以 4 個 Q head 示意。Qwen3-0.6B 實際上是 16 個 Q head：MHA 會有 16 組 KV，它用的 GQA 是 8 組（每 2 個 Q head 共用 1 組），MQA 則只有 1 組。
 
 - **省下什麼**：KV cache 的大小只取決於 KV head 的數量。16 組改成 8 組，**KV cache 就減半**
 - **為什麼對 serving 特別重要**：
@@ -284,6 +318,15 @@ x = self.mlp.forward(x)                                           # ④
 | 做的事 | 為所有 prompt token 算出 K、V 並寫進 cache，然後吐出第 1 個 token | 讀取整份 KV cache，吐出下一個 token，一直重複到結束 |
 | 瓶頸 | **compute-bound**（算力不夠） | **memory-bound**（顯存頻寬不夠） |
 | 對應指標 | **TTFT**（time to first token） | **TPOT / ITL**（time per output token，每個 token 之間的間隔） |
+
+```mermaid
+flowchart LR
+    P["Prefill<br/>整段 prompt 一次送入<br/>compute-bound"] -->|"寫入 N 個 token 的 KV"| C[("KV cache")]
+    P -->|"吐出第 1 個 token：決定 TTFT"| D["Decode 一步<br/>只送入 1 個新 token<br/>memory-bound"]
+    C -->|"讀出全部 KV"| D
+    D -->|"寫入 1 個 token 的 KV"| C
+    D -->|"下一個 token：間隔就是 TPOT"| D
+```
 
 **為什麼 decode 是 memory-bound？** 以 RTX 3050 為例，它的顯存頻寬大約是 224 GB/s：
 - decode 一步要把 1.2 GB 的權重全部從顯存讀一遍，光是讀取就要約 **5 ms**

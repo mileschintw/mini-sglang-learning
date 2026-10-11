@@ -42,20 +42,23 @@ vLLM 的 **PagedAttention** 論文（2023）借用了作業系統的 **virtual m
 
 啟動時**一次把 KV 要用的 GPU 記憶體全部配好**，之後不再向 PyTorch 要記憶體，只在自己的 pool 裡面分配和回收。
 
-```
-                   ┌─────────── scheduler process（CPU 邏輯） ───────────┐
-                   │                                                    │
-                   │  TableManager         CacheManager                 │
-                   │  ─ 管 row（給 request） ─ 管 page（給 token）           │
-                   │  _free_slots: [0..255] free_slots: [0, 1, 2, ...]  │
-                   │                       prefix_cache（Ch3）            │
-                   └──────────┬──────────────────┬──────────────────────┘
-                              │ 分配 row          │ 分配 page，寫入 page table
-                              ▼                  ▼
-GPU 上的 tensor:
-  token_pool  [257, max_seq_len] int32   第 r 列第 i 格 = 第 r 個 request 的第 i 個 token id
-  page_table  [257, max_seq_len] int32   第 r 列第 i 格 = 這個 token 的 KV 存在 pool 的哪個 slot
-  KV pool     [2, 層數, num_pages+1, page_size, kv_heads, head_dim]   真正的 K、V 資料
+```mermaid
+flowchart TB
+    subgraph CPU["scheduler process（CPU 邏輯）"]
+        TM["TableManager<br/>管 row，分給 request<br/>_free_slots: 0..255"]
+        CM["CacheManager<br/>管 page，分給 token<br/>free_slots: 0, 1, 2, …"]
+        PC["prefix_cache（Ch3）"]
+        CM --- PC
+    end
+    subgraph GPU["GPU 上的 tensor"]
+        TP["token_pool [257, max_seq_len] int32<br/>第 r 列第 i 格 = 第 r 個 request 的第 i 個 token id"]
+        PT["page_table [257, max_seq_len] int32<br/>第 r 列第 i 格 = 這個 token 的 KV 存在 pool 的哪個 slot"]
+        KV["KV pool [2, 層數, num_pages+1, page_size, kv_heads, head_dim]<br/>真正的 K、V 資料"]
+    end
+    TM -->|"分配 row"| TP
+    TM -->|"分配 row"| PT
+    CM -->|"分配 page，寫入 page table"| PT
+    PT -.->|"slot 編號指向"| KV
 ```
 
 四個名詞先定義清楚，本章會一直用到：
@@ -370,12 +373,15 @@ lock 之前，命中的那段 KV 如果沒人在用，算在 prefix cache 的 **
 
 把 Ch1 的旅程換成「記憶體」的角度再走一次：
 
-```
-pending      match_req → lock(handle) → 分配 row → 命中的 slot 寫進 page_table
-prefill      allocate_paged：配 extend_len 個 slot → forward 寫入 KV
-prefill 後   cache_req(finished=False)：把 prompt 交給 prefix cache，換一個新的 handle 並鎖住
-decode ×N    每一步 allocate_paged 配 1 個 slot（page_size=1 時）
-結束 / abort  _free_req_resources：釋放 row + cache_req(finished=True)
+```mermaid
+flowchart TD
+    A["pending<br/>match_req → lock(handle) → 分配 row → 命中的 slot 寫進 page_table"]
+    B["prefill<br/>allocate_paged：配 extend_len 個 slot → forward 寫入 KV"]
+    C["prefill 後<br/>cache_req(finished=False)：把 prompt 交給 prefix cache，換一個新的 handle 並鎖住"]
+    D["decode × N<br/>每一步 allocate_paged 配 1 個 slot（page_size=1 時）"]
+    E["結束 / abort<br/>_free_req_resources：釋放 row + cache_req(finished=True)"]
+    A --> B --> C --> D --> E
+    D -->|"下一步"| D
 ```
 
 ### `cache_req`：交給 prefix cache，而不是直接 free
