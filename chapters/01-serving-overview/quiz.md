@@ -23,3 +23,14 @@
 - **Q1.5**：所有現有使用者都要等 160,000 ms 才能繼續收到後續 token。設定每個 batch 的 prefill chunk 大小可以限制每一步的處理量。
 - **Q1.6**：Python 的 GIL 會讓 GPU 和 CPU 互相等待，會看到 GPU 長時間閒置，TTFT 與 TPOT 的波動也很大。
 - **Q1.7**：由 API server 發現，送出 userabort 和 decodeabort，從 API server 經過 tokenizer 到 scheduler，再由 rank 0 廣播給其他 TP rank。如果還在 prefill，要等到輸出第一個 token 時才會發現。
+
+## 追問
+
+| 題 | 結果 | 註記 |
+|---|---|---|
+| F1 | ✅ | 1000 步（由最長的 C 決定）；空轉 990 + 900 = 1890 slot-step；continuous batching 下，空出來的位置會立刻讓給新的 request。 |
+| F2 | ✅ | 每個 token 都會出現兩次。 |
+| F3 | ✅ | prefill 只跑 1 次 forward，所有 token 平行處理。延遲顯示在 TPOT 上。第一次答 40 ms，經追問後修正：prefill 那一步是 compute-bound，耗時遠大於 20 ms，所以要等 20 ms 加上 prefill 時間。這正是 Ch4 chunked prefill 要解決的問題。 |
+| F4 | ✅ | 訊息是 `AbortMsg` → `AbortBackendMsg`，先從 prefill/decode 清單移除。`scheduler.py:201` 釋放 page table 的 row；`:202` 的 `cache_req` 不直接 free，而是把 KV 交給 prefix cache，原因是別的 request 可能正在共用，或之後還能重用。由 ref_count 決定這些 KV 什麼時候才能真正被 evict（Ch3）。 |
+
+**Ch1 通過 ✅**
