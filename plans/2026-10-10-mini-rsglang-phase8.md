@@ -29,7 +29,7 @@ Phase 7 的結論是：Rust 在 S1（取消場景）的 P99 TTFT 是 4687 ms，p
 | Q6 | 方向 | 兩段式：Phase 8（P99 root cause ＋ fix）→ Phase 9（Rust radix cache via PyO3，以 flag 切換） |
 | Q7 | 停損點 | 週日晚上設 checkpoint，用來決定「履歷上能寫什麼」，**不是停止點**。有新的高機率線索就繼續追。達標標準：S1 P99 ≤ 431 ms |
 | Q9 | Quiz | 只有 Ch7 做完整 quiz。其他章節產生講義時，題目也一次產生完整，用 `⏸ 擱置` 標注，之後再補答 |
-| Q10／Q19 | Agent 執行方式 | 在 desktop app 為 mini-rsglang 另開一個 Code session，貼上下方的 kickoff prompt。agent 可以自行 ssh 到 GPU box 跑 benchmark |
+| Q10／Q19 | Agent 執行方式 | 在 desktop app 為 mini-rsglang 另開一個 Code session，貼上 [runbook](2026-10-10-phase8-runbook.md) 的 P1 Kickoff。agent 可以自行 ssh 到 GPU box 跑 benchmark |
 | Q11／Q15' | GSD | 退場。`.claude/CLAUDE.md` 重寫成手動維護的版本；`.planning/` 原地保留成唯讀歷史（因為 test 會讀 `STATE.md`）；刪除 `.worktreeinclude` 和 `milestone.lock`；`.gitignore` 的 GSD 條目保留 |
 | Q12 | Phase 9 是否並行 | 不並行，Phase 8 完成後才開始（GPU 只有一張，WSL 的效能也會互相影響） |
 | Q13／Q16 | Repo 與 profile | 直接放在 `LiyangTseng/mini-rsglang`。commit 用 `user39261580@gmail.com`；在 profile pin 這個 repo；README 加 Authors 行（要先問朋友） |
@@ -37,7 +37,8 @@ Phase 7 的結論是：Rust 在 S1（取消場景）的 P99 TTFT 是 4687 ms，p
 | Q17' | 驅動方式 | 由 `diagnosing-bugs` skill 驅動：**先建立 tight loop** 再提假說。最後跑一次 `/code-review` |
 | Q18 | Phase 9 的設計 | 學完 Ch3 後另外做一輪 grilling |
 | Q21 | Branch | 只開一條 `feat/phase-8-p99-root-cause`。commit 1 = de-GSD，commit 2 = skills 設定，commit 3 = 計畫文件，之後每個 issue 至少一個 commit。最後用 **merge commit**（不用 squash）合回 main |
-| Q22 | 文件語言 | 學習 repo 用中文，mini-rsglang 用英文 |
+| Q22 | 文件語言 | 學習 repo 用中文，mini-rsglang 用英文；給 agent 的 prompt 一律用英文 |
+| 追加 | 修法決策關卡 | #16 完成後，agent 在 #17 列出修法選項與取捨，然後停下來等我決定（Gate A）。已寫進英文計畫和 #17 |
 
 ## 已完成（10/10，由 Claude 執行）
 
@@ -61,7 +62,7 @@ Phase 7 的結論是：Rust 在 S1（取消場景）的 P99 TTFT 是 4687 ms，p
   - 最後會用 merge commit 合回 main
   - 能不能在 README 開頭加上 `Authors: @LiyangTseng, @mileschintw`
 - [ ] 在 GitHub profile pin `LiyangTseng/mini-rsglang`（開過 PR 就算 contribution，現在就能 pin）
-- [ ] desktop app → 新增 Code session → 資料夾選 `~/Desktop/repos/mini-rsglang`，切到 `feat/phase-8-p99-root-cause` → effort 調到 high → 貼上下方的 kickoff prompt
+- [ ] desktop app → 新增 Code session → 資料夾選 `~/Desktop/repos/mini-rsglang`，切到 `feat/phase-8-p99-root-cause` → effort 調到 high → 貼上 [runbook](2026-10-10-phase8-runbook.md) 的 P1 Kickoff
 - [ ] 回到這個 session，把 effort 調高，開始學 Ch7（含完整 quiz）
 
 ### 明天（10/11）
@@ -84,36 +85,9 @@ Phase 7 的結論是：Rust 在 S1（取消場景）的 P99 TTFT 是 4687 ms，p
 - [ ] 開始 Phase 9
 - [ ] 去 sglang 找 Rust 相關的 issue 認領
 
-## Kickoff prompt
+## Prompts
 
-貼到新的 mini-rsglang session：
-
-```text
-你在 mini-rsglang 的 feat/phase-8-p99-root-cause branch 上工作，負責執行 Phase 8。
-
-先讀：
-- docs/plans/phase-8-p99-root-cause.md（整個 phase 的計畫）
-- CONTEXT.md、.claude/CLAUDE.md、根目錄的 claude.md（行為準則與 git 規則）
-- docs/benchmarks/FINDINGS.md（Phase 7 的結論與 v1 假說）
-- issues #14 → #15 → #16 → #17 → #18（gh issue view N --comments），依序執行
-
-工作方式：
-- 開始 #14 之前，先用 Skill tool 呼叫 `mattpocock-skills:diagnosing-bugs`，用它驅動 #14–#17。#14 的 tight loop 還沒建好之前，不要開始提假說或修 code。
-- #18 完成後，用 Skill tool 呼叫 `code-review`（effort 用 high），針對整條 branch 對 main 的 diff 做檢查，修掉確認的問題後 push，再到 PR #19 留言總結。
-- 每完成一個 issue：commit（message 引用 #N）→ push → 在該 issue 留言，附上指令、輸出和結論 → close issue → 在 PR #19 勾掉對應項目。
-- 所有寫進 repo 的內容（code、commit、issue／PR 留言、文件）都用英文。
-- Git：commit 作者用 mileschintw <user39261580@gmail.com>（先確認 git config user.email）。commit message 不要加 Co-authored-by，也不要提到 AI（claude.md 的規定）。不要 push 到 main，不要 force push，也不要把 PR 標成 ready。這些留給我。
-- vendor/ 絕對不能改（frozen backend）。wire contract 和 parity 要維持。
-
-GPU box（已授權你自行使用，不用每次問我）：
-- ssh tw-desktop（WSL，RTX 3050 8GB）。repo 在 ~/projects/mini-rsglang，目前停在舊的 branch，請先 git fetch 再 checkout feat/phase-8-p99-root-cause。
-- 每次跑之前先看 nvidia-smi。使用現有環境，不要安裝或修改套件。port 用 31000 以上。模型只用 Qwen3-0.6B。跑完要 kill 掉所有你啟動的 process。
-- 不要在 GPU box 上啟動 claude，只透過 ssh 執行 script。
-
-Checkpoint：10/11 晚上，在 PR #19 留言總結目前已證實的事（root cause／部分改善／被推翻的假說），附上數字。這不是停止點，有高機率的新線索就繼續做。
-
-遇到需要我決定的事（例如修法有取捨、需要動 vendor/、目標明顯達不到），在對應的 issue 留言並停下來問我。
-```
+各階段的英文 prompt（kickoff、Gate A 決策、checkpoint、follow-up、finalize、接手、讓出 GPU），以及預期 roadmap，都在 [Phase 8 Runbook](2026-10-10-phase8-runbook.md)。
 
 ## Phase 9 待辦（學完 Ch3 後 grilling）
 
