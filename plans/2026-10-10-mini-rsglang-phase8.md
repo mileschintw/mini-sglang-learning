@@ -98,7 +98,8 @@ Phase 7 的結論是：Rust 在 S1（取消場景）的 P99 TTFT 是 4687 ms，p
 - issues #14 → #15 → #16 → #17 → #18（gh issue view N --comments），依序執行
 
 工作方式：
-- 用 diagnosing-bugs skill 驅動整個 phase。#14 的 tight loop 還沒建好之前，不要開始提假說或修 code。
+- 開始 #14 之前，先用 Skill tool 呼叫 `mattpocock-skills:diagnosing-bugs`，用它驅動 #14–#17。#14 的 tight loop 還沒建好之前，不要開始提假說或修 code。
+- #18 完成後，用 Skill tool 呼叫 `code-review`（effort 用 high），針對整條 branch 對 main 的 diff 做檢查，修掉確認的問題後 push，再到 PR #19 留言總結。
 - 每完成一個 issue：commit（message 引用 #N）→ push → 在該 issue 留言，附上指令、輸出和結論 → close issue → 在 PR #19 勾掉對應項目。
 - 所有寫進 repo 的內容（code、commit、issue／PR 留言、文件）都用英文。
 - Git：commit 作者用 mileschintw <user39261580@gmail.com>（先確認 git config user.email）。commit message 不要加 Co-authored-by，也不要提到 AI（claude.md 的規定）。不要 push 到 main，不要 force push，也不要把 PR 標成 ready。這些留給我。
