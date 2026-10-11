@@ -20,15 +20,18 @@
 | 5 | Engine 與 model forward：attention backend、CUDA graph、sampling、TP（帶過） | `engine/`, `attention/` | 1h | ⬜ |
 | 6 | 前端與 IPC：ZMQ、msgpack、tokenizer / detokenizer、API server | `message/`, `utils/mp.py`, `tokenizer/`, `server/api_server.py` | 1h | ⬜ |
 | 7 ★ | mini-rsglang：架構、各 crate、wire parity、lifecycle FSM、writer thread、FINDINGS | `crates/`, `docs/benchmarks/FINDINGS.md` | 2h | ⬜ |
-| 8 | 選題與動工計畫：比較 Rust radix cache、P99 TTFT 修正、L1 Rust 化 | — | 1h | ⬜ |
+| 8 | 選題與動工計畫：已用 grilling 決定 → [Phase 8 計畫](plans/2026-10-10-mini-rsglang-phase8.md)（P99 TTFT root cause） | — | — | ✅ |
 
 ## 時程
 
+10/10 改版：學習和 mini-rsglang Phase 8 同步進行（agent 在另一個 session 執行），細節見 [Phase 8 計畫](plans/2026-10-10-mini-rsglang-phase8.md)。
+
 | 日期 | 內容 |
 |---|---|
-| 10/9（五）1–2h | 環境設定 → Ch0 → Ch1 |
-| 10/10（六）整天 | Ch2 → Ch8，含 3 個實驗 |
-| 10/11（日） | 依照 Ch8 的計畫開始動工 |
+| 10/9（五）1–2h | 環境設定 → Ch0 → Ch1 ✅ |
+| 10/10（六） | 用 grilling 定好 Phase 8 計畫 ✅ → Ch7（併入 Ch6，完整 quiz） |
+| 10/11（日） | Ch2 → Ch3 → Ch4（精簡 quiz，其餘題目標 ⏸ 擱置），Ch5 只讀摘要；晚上 checkpoint；Phase 9 grilling |
+| 10/12（一） | review 並 merge PR、改履歷 |
 
 ## 實驗（RTX 3050 @ `tw-desktop`，Qwen3-0.6B）
 
