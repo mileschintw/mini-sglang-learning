@@ -14,7 +14,7 @@
 |---|---|---|---|---|
 | 0 | [Transformer 推論速查](chapters/00-transformer-inference/guide.md)：先考試，答不好再補 | `models/`, `layers/attention.py` | 0.5h | ✅ |
 | 1 | [LLM serving 全景](chapters/01-serving-overview/guide.md)：TTFT/TPOT/throughput、prefill vs decode、continuous batching；process 架構與一個 request 的完整旅程 | `docs/structures.md`, `server/launch.py`, `core.py` | 1.5h | ✅ |
-| 2 ★ | KV cache 記憶體管理：KV pool、page table、allocator、paged attention | `kvcache/mha_pool.py`, `scheduler/cache.py`, `scheduler/table.py` | 1.5h | ⬜ |
+| 2 ★ | [KV cache 記憶體管理](chapters/02-kv-cache-memory/guide.md)：KV pool、page table、allocator、paged attention | `kvcache/mha_pool.py`, `scheduler/cache.py`, `scheduler/table.py` | 1.5h | ⬜ |
 | 3 ★ | Radix prefix cache：match / insert / split / LRU evict / ref_count | `kvcache/radix_cache.py` | 1.5h | ⬜ |
 | 4 ★ | Scheduler：prefill 優先、token budget、chunked prefill、overlap scheduling | `scheduler/*.py` | 2h | ⬜ |
 | 5 | Engine 與 model forward：attention backend、CUDA graph、sampling、TP（帶過） | `engine/`, `attention/` | 1h | ⬜ |

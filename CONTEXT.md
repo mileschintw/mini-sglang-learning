@@ -64,7 +64,36 @@ tensor parallelism 中的一張 GPU 及其 scheduler process。rank 0（primary�
 **Abort**:
 使用者斷線或取消時，從 frontend 一路傳到 scheduler、要求釋放該 request 資源的流程。
 
+## KV cache 記憶體（Ch2）
+
+**KV pool**:
+啟動時一次配好的一整塊 GPU 記憶體，存放所有 request 的 K、V。它只認得 slot 編號，不知道 slot 屬於哪個 request。
+
+**Slot**:
+KV pool 裡存放**一個 token**（所有層、所有 KV head）的 K、V 的位置，用整數編號。
+_Avoid_: `TableManager._free_slots` 裡的 slot（那是 row，命名上的巧合）
+
+**Page / page_size**:
+連續 `page_size` 個 slot，是分配和 prefix cache 命中的最小單位。預設 `page_size = 1`。
+
+**Row（table_idx）**:
+page table 和 token pool 中的一列。每個執行中的 request 佔一列，由 `TableManager` 分配，數量上限是 `max_running_req`。
+
+**Page table**:
+`[row, 位置] → slot` 的對照表。mini-sglang 存的是 slot 編號（而不是 page 編號），所以 kernel 端不需要知道 page_size。
+
+**Token pool**:
+跟 page table 同形狀的 `[row, 位置] → token id` 表。每一步的 input token 從這裡取出，sample 出的新 token 寫回這裡。
+
+**Admission control**:
+pending request 進入 prefill 前的資源檢查：要有空的 row，而且照最壞情況（`max_tokens`）預留的 slot 放得下。mini-sglang 因此不需要 preemption。
+
+**Cache handle**:
+prefix cache 回傳的「命中了哪一段」的憑證。被 lock 時，對應的 KV 是 protected，不能被 evict。
+
 ## 關係
 
 - 一個 **Upstream** 包含一個 **Frontend** 和一個 **Backend**
 - mini-rsglang = Rust **Frontend** + Upstream 的 **Backend**，兩者透過 **Wire contract** 溝通
+- 一個 **Row** 對應一個執行中的 request；**Page table** 的一列把這個 request 每個位置對應到 **KV pool** 裡的一個 **Slot**
+- **Slot** 以 **Page** 為單位被分配；沒人在用的 **Slot** 不是 free，就是在 prefix cache 裡（可被 evict）
