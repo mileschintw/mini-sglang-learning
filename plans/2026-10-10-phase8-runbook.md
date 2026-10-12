@@ -10,6 +10,8 @@
 ```
 [已完成] Stage 0  setup：de-GSD、skills 設定、計畫文件、issues、draft PR
    │
+   ▼  P0 環境準備（GPU box 上的新 session）
+   │
    ▼  P1 Kickoff
 Stage 1  #14 tight loop → #15 instrumentation → #16 root cause     （agent 自主執行）
    │
@@ -47,7 +49,34 @@ Stage 7  Phase 9 grilling（學完 Ch3 後）→ 產生 Phase 9 的 kickoff    �
 
 ---
 
-## P1：Kickoff（新 session 的第一則訊息）
+## P0：環境準備（GPU box 上的新 session，在 P1 之前跑一次）
+
+10/11 改版：agent 改成直接跑在 GPU box（Windows ＋ WSL2）上，Mac 只用 Remote Control 連進去操作。
+
+開 session 之前，你要先做好：
+- 在 Windows 裝好 Claude Code 並登入，裝好 `mattpocock-skills` plugin
+- session 的資料夾選 WSL 裡的 clone：`\\wsl.localhost\<distro>\home\user39261580\projects\mini-rsglang`
+- 確認 Windows 不會睡眠，也不會因為 Windows Update 自動重開機
+
+P0 只做準備，不碰 #14。跑完後，它會在 repo 根目錄留下一份不進 git 的 `CLAUDE.local.md`，記錄這台機器的操作方式。之後的 session 都會自動讀到它。
+
+```text
+This is a one-off setup pass for Phase 8 of mini-rsglang. Do NOT start any issue (#14–#18) and do not commit or push anything. Use English for everything. The goal is that, when you finish, I can paste the Phase 8 kickoff prompt into this session and work starts immediately.
+
+Context: this machine is the GPU box, a Windows host with WSL2 and an RTX 3050 8GB. The repository lives inside WSL at ~/projects/mini-rsglang (user user39261580). The Rust and Python toolchains, the model cache and the GPU workloads all live in WSL. I will control this session remotely from my Mac.
+
+1. Where you run. Determine whether you are running on native Windows or inside WSL. If on Windows, confirm that `wsl.exe` works, find the distro name, and work out one reliable pattern for running commands inside WSL in the repo, e.g. `wsl.exe -d <distro> --cd ~/projects/mini-rsglang -- bash -lc "<cmd>"`. Confirm your file tools can read and edit the repo through the \\wsl.localhost path. Every build, test, git, gh and benchmark command must run inside WSL, never with Windows-side git or toolchains, to avoid CRLF and file-permission problems.
+2. Repository. Inside WSL: check `git status`, and stop and tell me if there are local changes. Set repo-local `user.name` to `mileschintw` and `user.email` to `user39261580@gmail.com` (the current value has a typo: `usser…`). Fetch, check out `feat/phase-8-p99-root-cause`, and fast-forward to origin. Confirm HEAD contains commit ed24db1.
+3. GitHub access. Inside WSL, `gh` must be installed and authenticated with push access to LiyangTseng/mini-rsglang (`gh repo view LiyangTseng/mini-rsglang --json viewerPermission`), and git must push through it (`gh auth setup-git`). Verify with `git push --dry-run`. If gh is missing or not logged in, give me the exact commands to run myself and wait; never handle tokens or passwords yourself.
+4. Skills. Confirm that the `mattpocock-skills:diagnosing-bugs` and `code-review` skills are available in this session. If not, tell me exactly what to install and wait.
+5. Toolchain. Do not install or upgrade packages; use the existing environment. Report the cargo and rustc versions and the Python environment that the Phase 7 scripts use (read scripts/gpu_phase7_bench.sh and scripts/check_all.sh to see how they activate it). Build the workspace the way those scripts do, then run the fastest existing check that covers the Rust crates and the parity tests. Use `scripts/check_all.sh --offline` if it fits in about 15 minutes.
+6. GPU smoke test. Check `nvidia-smi`. Confirm that Qwen3-0.6B is already in the local model cache (do not download anything). Confirm that ports 31000+ are free. Then run the shortest existing end-to-end smoke that drives the Rust server: the mock stack (`rsg-mock-stack`) first, then one short real-GPU launch on port 31000+ with a single request. Do NOT run the full Phase 7 benchmark. Kill every process you started and confirm with `nvidia-smi` and `ss -ltnp`.
+7. Always-on check. Read-only: report the Windows sleep and hibernate timeouts (`powercfg /query` or `powercfg /a`), whether Windows Update could reboot soon, and whether WSL shuts down when idle (check `%UserProfile%\.wslconfig`, e.g. `vmIdleTimeout`). Do not change any system setting; tell me what to change.
+8. Setup notes. Write `CLAUDE.local.md` at the repo root and add it to `.git/info/exclude`, never to .gitignore and never committed. It must contain: how to run commands inside WSL (the exact pattern from step 1), the repo paths on both sides, how to activate the Python environment, the build and test commands, how to start and stop the mock stack and the real server, and the benchmark rules: check `nvidia-smi` first; ports 31000+; Qwen3-0.6B only; no builds or tests while a benchmark is running; kill everything you started afterwards. Keep it short and factual.
+9. Report. End with a checklist table (item / status / evidence) covering steps 1–8, and list exactly what I still need to do before the kickoff. Then stop.
+```
+
+## P1：Kickoff（P0 完成後，同一個 session 的下一則訊息）
 
 ```text
 You are working on mini-rsglang, branch `feat/phase-8-p99-root-cause`, to execute Phase 8: find and fix the root cause of the Rust frontend's P99 TTFT tail spike.
@@ -66,10 +95,10 @@ How to work:
 - Git: author as mileschintw <user39261580@gmail.com> (check `git config user.email` first). No Co-authored-by trailers and no mention of AI in commit messages (root claude.md rule). Never push to main, never force-push, never mark PR #19 ready for review; those are mine.
 - Never modify vendor/ (frozen backend). Keep the wire contract and output parity intact.
 
-GPU box (you may use it without asking each time):
-- `ssh tw-desktop` (WSL, RTX 3050 8GB). The clone is at ~/projects/mini-rsglang on an old branch: `git fetch` and check out `feat/phase-8-p99-root-cause` first.
+Machine (you run on the GPU box itself; you may use the GPU without asking each time):
+- Follow CLAUDE.local.md from the setup pass: run every build, test, git, gh and benchmark command inside WSL using the pattern recorded there.
 - Check `nvidia-smi` before every run. Use the existing environment; do not install or modify packages. Use ports 31000+. Qwen3-0.6B only. Kill every process you started when done.
-- Never launch `claude` on the GPU box; only run scripts over ssh.
+- Never build or run tests while a benchmark is running: they share the CPU and distort tail latency.
 
 Checkpoint: on the evening of 2026-10-11, post a comment on PR #19 summarising what is proven so far (root cause / partial improvement / rejected hypotheses) with numbers. This is not a stop; keep going if there is a strong new lead.
 
@@ -137,5 +166,5 @@ Resume Phase 8 of mini-rsglang on branch `feat/phase-8-p99-root-cause`. Rebuild 
 **暫時讓出 GPU**（你自己要用 GPU box 時）：
 
 ```text
-Pause all GPU box usage now: stop any running benchmark, kill every process you started on tw-desktop, confirm with nvidia-smi, and continue only with Mac-side work until I say the GPU is free again.
+Pause all GPU box usage now: stop any running benchmark, kill every process you started, confirm with nvidia-smi, and continue only with work that does not touch the GPU or load the CPU heavily (reading code, writing docs, posting comments) until I say the GPU is free again.
 ```

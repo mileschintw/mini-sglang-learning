@@ -29,7 +29,7 @@ Phase 7 的結論是：Rust 在 S1（取消場景）的 P99 TTFT 是 4687 ms，p
 | Q6 | 方向 | 兩段式：Phase 8（P99 root cause ＋ fix）→ Phase 9（Rust radix cache via PyO3，以 flag 切換） |
 | Q7 | 停損點 | 週日晚上設 checkpoint，用來決定「履歷上能寫什麼」，**不是停止點**。有新的高機率線索就繼續追。達標標準：S1 P99 ≤ 431 ms |
 | Q9 | Quiz | 只有 Ch7 做完整 quiz。其他章節產生講義時，題目也一次產生完整，用 `⏸ 擱置` 標注，之後再補答 |
-| Q10／Q19 | Agent 執行方式 | 在 desktop app 為 mini-rsglang 另開一個 Code session，貼上 [runbook](2026-10-10-phase8-runbook.md) 的 P1 Kickoff。agent 可以自行 ssh 到 GPU box 跑 benchmark |
+| Q10／Q19 | Agent 執行方式 | 10/11 改版：agent 直接跑在 GPU box（Windows ＋ WSL2），Mac 用 Remote Control 遠端操作。先貼 [runbook](2026-10-10-phase8-runbook.md) 的 P0 環境準備，再貼 P1 Kickoff |
 | Q11／Q15' | GSD | 退場。`.claude/CLAUDE.md` 重寫成手動維護的版本；`.planning/` 原地保留成唯讀歷史（因為 test 會讀 `STATE.md`）；刪除 `.worktreeinclude` 和 `milestone.lock`；`.gitignore` 的 GSD 條目保留 |
 | Q12 | Phase 9 是否並行 | 不並行，Phase 8 完成後才開始（GPU 只有一張，WSL 的效能也會互相影響） |
 | Q13／Q16 | Repo 與 profile | 直接放在 `LiyangTseng/mini-rsglang`。commit 用 `user39261580@gmail.com`；在 profile pin 這個 repo；README 加 Authors 行（要先問朋友） |
@@ -62,7 +62,7 @@ Phase 7 的結論是：Rust 在 S1（取消場景）的 P99 TTFT 是 4687 ms，p
   - 最後會用 merge commit 合回 main
   - 能不能在 README 開頭加上 `Authors: @LiyangTseng, @mileschintw`
 - [ ] 在 GitHub profile pin `LiyangTseng/mini-rsglang`（開過 PR 就算 contribution，現在就能 pin）
-- [ ] desktop app → 新增 Code session → 資料夾選 `~/Desktop/repos/mini-rsglang`，切到 `feat/phase-8-p99-root-cause` → effort 調到 high → 貼上 [runbook](2026-10-10-phase8-runbook.md) 的 P1 Kickoff
+- [ ] GPU box（Windows）開 Claude Code session，資料夾選 WSL 裡的 clone → effort 調到 high → 貼 [runbook](2026-10-10-phase8-runbook.md) 的 P0 → 完成後貼 P1 → 從 Mac 用 Remote Control 接手
 - [ ] 回到這個 session，把 effort 調高，開始學 Ch7（含完整 quiz）
 
 ### 明天（10/11）
