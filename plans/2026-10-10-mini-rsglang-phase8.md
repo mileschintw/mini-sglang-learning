@@ -2,7 +2,7 @@
 
 2026-10-10（六）grilling 的結論。**狀態：2026-10-12 已完成並 merge。**目標：週二（10/14）career fair 的履歷能放上 mini-rsglang，並附上自己主導、有數字的成果。下週去認領 sglang 的 Rust 相關 issue。
 
-- mini-rsglang 英文計畫（給 agent 看，merge 前改名為 `p99-ttft-root-cause.md`）：[`docs/plans/phase-8-p99-root-cause.md`](https://github.com/LiyangTseng/mini-rsglang/blob/main/docs/plans/p99-ttft-root-cause.md)
+- mini-rsglang 英文計畫（給 agent 看，merge 前由 `phase-8-p99-root-cause.md` 改名）：[`docs/plans/p99-ttft-root-cause.md`](https://github.com/LiyangTseng/mini-rsglang/blob/main/docs/plans/p99-ttft-root-cause.md)
 - PR（已用 merge commit 合併，`68d2f4b`）：[LiyangTseng/mini-rsglang#19](https://github.com/LiyangTseng/mini-rsglang/pull/19)
 - Issues：[#14](https://github.com/LiyangTseng/mini-rsglang/issues/14) → [#15](https://github.com/LiyangTseng/mini-rsglang/issues/15) → [#16](https://github.com/LiyangTseng/mini-rsglang/issues/16) → [#17](https://github.com/LiyangTseng/mini-rsglang/issues/17) → [#18](https://github.com/LiyangTseng/mini-rsglang/issues/18)
 
