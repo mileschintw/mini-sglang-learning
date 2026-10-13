@@ -1,10 +1,25 @@
 # mini-rsglang 下一步：Phase 8 計畫與執行步驟
 
-2026-10-10（六）grilling 的結論。目標：週二（10/14）career fair 的履歷能放上 mini-rsglang，並附上自己主導、有數字的成果。下週去認領 sglang 的 Rust 相關 issue。
+2026-10-10（六）grilling 的結論。**狀態：2026-10-12 已完成並 merge。**目標：週二（10/14）career fair 的履歷能放上 mini-rsglang，並附上自己主導、有數字的成果。下週去認領 sglang 的 Rust 相關 issue。
 
-- mini-rsglang 英文計畫（給 agent 看）：[`docs/plans/phase-8-p99-root-cause.md`](https://github.com/LiyangTseng/mini-rsglang/blob/feat/phase-8-p99-root-cause/docs/plans/phase-8-p99-root-cause.md)
-- Draft PR：[LiyangTseng/mini-rsglang#19](https://github.com/LiyangTseng/mini-rsglang/pull/19)
+- mini-rsglang 英文計畫（給 agent 看，merge 前改名為 `p99-ttft-root-cause.md`）：[`docs/plans/phase-8-p99-root-cause.md`](https://github.com/LiyangTseng/mini-rsglang/blob/main/docs/plans/p99-ttft-root-cause.md)
+- PR（已用 merge commit 合併，`68d2f4b`）：[LiyangTseng/mini-rsglang#19](https://github.com/LiyangTseng/mini-rsglang/pull/19)
 - Issues：[#14](https://github.com/LiyangTseng/mini-rsglang/issues/14) → [#15](https://github.com/LiyangTseng/mini-rsglang/issues/15) → [#16](https://github.com/LiyangTseng/mini-rsglang/issues/16) → [#17](https://github.com/LiyangTseng/mini-rsglang/issues/17) → [#18](https://github.com/LiyangTseng/mini-rsglang/issues/18)
+
+## 結果（10/12）
+
+| 項目 | 修之前 | 修之後 | python-best |
+|---|---|---|---|
+| S1 P99 TTFT | 4868 ms | **302 ms**，CI [275, 329] | 314 ms（統計上打平） |
+| S1 P50 TTFT | 69.2 ms | **50.9 ms** | 53.5 ms（Rust 顯著較低） |
+| S1 frontend RSS | 8.18 GB | **138 MB** | 3.04 GB |
+| S2 rate=60 P99 | 672 ms | **63 ms** | 73.5 ms |
+| S3 冷啟動 | — | **8.22 s**，RSS 123 MB | 9.28 s，RSS 3.03 GB |
+
+- **Root cause：** `HfCodec::decoder()` 每個 request 都 deep-clone 一份完整 tokenizer（約 15–30 MiB 的小配置）。128 個 request 同時進來、heap 還是冷的時候，每次 clone 要 3.6–4.6 s；decoder 又必須在 submit 之前建好，所以直接卡住第一個 token。v1 的 ZMQ 假說被否定。
+- **修法：** 共用一份 `Arc<Tokenizer>`，每個 request 只保有自己的 decode state。Regression test：1,000 次 decoder build 要在 1 s 內完成（修之前 24 s）。
+- **達標：** 目標 ≤ 431 ms，實測 302 ms。
+- **Follow-up（`needs-triage`）：** [#20](https://github.com/LiyangTseng/mini-rsglang/issues/20) test suite 在 GPU box 上安全執行、[#21](https://github.com/LiyangTseng/mini-rsglang/issues/21) 是否拿掉 `spawn_blocking`、[#22](https://github.com/LiyangTseng/mini-rsglang/issues/22) `HfCodec` 只留一份 tokenizer、[#23](https://github.com/LiyangTseng/mini-rsglang/issues/23) S2 低流量時 Rust P99 高 10–15 ms
 
 ## 為什麼是 P99 TTFT
 
@@ -56,28 +71,29 @@ Phase 7 的結論是：Rust 在 S1（取消場景）的 P99 TTFT 是 4687 ms，p
 
 ### 今天（10/10）
 
-- [ ] 跟朋友說一聲，需要對齊的事：
+- [x] 跟朋友說一聲，需要對齊的事：
   - Phase 8／9 的方向，以及 branch 和 PR #19
   - GSD 已經退場（他的 Claude Code 讀到新的 `.claude/CLAUDE.md` 時，行為也會跟著改變）
   - 最後會用 merge commit 合回 main
   - 能不能在 README 開頭加上 `Authors: @LiyangTseng, @mileschintw`
 - [ ] 在 GitHub profile pin `LiyangTseng/mini-rsglang`（開過 PR 就算 contribution，現在就能 pin）
-- [ ] GPU box（Windows）開 Claude Code session，資料夾選 WSL 裡的 clone → effort 調到 high → 貼 [runbook](2026-10-10-phase8-runbook.md) 的 P0 → 完成後貼 P1 → 從 Mac 用 Remote Control 接手
-- [ ] 回到這個 session，把 effort 調高，開始學 Ch7（含完整 quiz）
+- [x] GPU box（Windows）開 Claude Code session，資料夾選 WSL 裡的 clone → effort 調到 high → 貼 [runbook](2026-10-10-phase8-runbook.md) 的 P0 → 完成後貼 P1 → 從 Mac 用 Remote Control 接手
+- [x] 回到這個 session，把 effort 調高，開始學 Ch7（講義完成，quiz 延到 10/12）
 
 ### 明天（10/11）
 
-- [ ] 學 Ch2 → Ch3 → Ch4（精簡 quiz，題目產生完整，但標注 ⏸ 擱置），Ch5 只讀摘要
-- [ ] 中途看看 agent 在 issues 上留的進度，有問題就回覆
-- [ ] **晚上 checkpoint**：讀 #14–#16 的結論，決定履歷 bullet 的寫法。還有線索就讓 agent 繼續追
-- [ ] 學完 Ch3 後做 Phase 9 的 grilling
+- [ ] 學 Ch2 → Ch3 → Ch4（精簡 quiz，題目產生完整，但標注 ⏸ 擱置），Ch5 只讀摘要（只完成 Ch2 講義，其餘延到週二之後）
+- [x] 中途看看 agent 在 issues 上留的進度，有問題就回覆
+- [x] **晚上 checkpoint**：讀 #14–#16 的結論，決定履歷 bullet 的寫法。還有線索就讓 agent 繼續追
+- [ ] 學完 Ch3 後做 Phase 9 的 grilling（延後）
 
 ### 週一（10/12）
 
-- [ ] 確認 #18 的 GPU benchmark 和 FINDINGS v2 都已完成
-- [ ] 在 agent session 跑 `/code-review`，處理發現的問題
-- [ ] 自己 review PR #19。看得懂、講得出來之後，標成 ready，用 **Create a merge commit** 合併
+- [x] 確認 #18 的 GPU benchmark 和 FINDINGS v2 都已完成
+- [x] 在 agent session 跑 `/code-review`，處理發現的問題
+- [x] 自己 review PR #19。看得懂、講得出來之後，標成 ready，用 **Create a merge commit** 合併
 - [ ] 改履歷，準備 30 秒的 pitch
+- [ ] Ch7 quiz（含 Q7.11 pitch）
 
 ### 週二之後
 
@@ -90,6 +106,8 @@ Phase 7 的結論是：Rust 在 S1（取消場景）的 P99 TTFT 是 4687 ms，p
 各階段的英文 prompt（kickoff、Gate A 決策、checkpoint、follow-up、finalize、接手、讓出 GPU），以及預期 roadmap，都在 [Phase 8 Runbook](2026-10-10-phase8-runbook.md)。
 
 ## Phase 9 待辦（學完 Ch3 後 grilling）
+
+**要先解決的衝突：** merge 進 main 的 FINDINGS 和 README 的 Future work 寫著，Rust radix cache 需要改 vendored 的 Python scheduler，跟 frozen-backend 限制衝突，所以「目前排除」。這和下面原本計畫的 `--cache rust-radix` opt-in flag 互相矛盾。grilling 要先決定：放寬成「只允許 opt-in 的 vendor 改動」、改做別的題目（例如 #23），還是先把時間花在認領 sglang 的 Rust issue。
 
 - 建置工具：maturin 還是 setuptools-rust（目前用 setuptools，沒有 PyO3）
 - 要對齊 `kvcache/radix_cache.py` 的哪個 interface；用 `--cache rust-radix` 這類 flag 切換

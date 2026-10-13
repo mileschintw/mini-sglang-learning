@@ -14,13 +14,13 @@
 |---|---|---|---|---|
 | 0 | [Transformer 推論速查](chapters/00-transformer-inference/guide.md)：先考試，答不好再補 | `models/`, `layers/attention.py` | 0.5h | ✅ |
 | 1 | [LLM serving 全景](chapters/01-serving-overview/guide.md)：TTFT/TPOT/throughput、prefill vs decode、continuous batching；process 架構與一個 request 的完整旅程 | `docs/structures.md`, `server/launch.py`, `core.py` | 1.5h | ✅ |
-| 2 ★ | [KV cache 記憶體管理](chapters/02-kv-cache-memory/guide.md)：KV pool、page table、allocator、paged attention | `kvcache/mha_pool.py`, `scheduler/cache.py`, `scheduler/table.py` | 1.5h | ⬜ |
+| 2 ★ | [KV cache 記憶體管理](chapters/02-kv-cache-memory/guide.md)：KV pool、page table、allocator、paged attention | `kvcache/mha_pool.py`, `scheduler/cache.py`, `scheduler/table.py` | 1.5h | 🟡 講義完成，quiz 待做 |
 | 3 ★ | Radix prefix cache：match / insert / split / LRU evict / ref_count | `kvcache/radix_cache.py` | 1.5h | ⬜ |
 | 4 ★ | Scheduler：prefill 優先、token budget、chunked prefill、overlap scheduling | `scheduler/*.py` | 2h | ⬜ |
 | 5 | Engine 與 model forward：attention backend、CUDA graph、sampling、TP（帶過） | `engine/`, `attention/` | 1h | ⬜ |
-| 6 | 前端與 IPC：已併入 Ch7 的 §2 | `message/`, `utils/mp.py`, `tokenizer/`, `server/api_server.py` | — | ↪ Ch7 |
+| 6 | 前端與 IPC（已併入 Ch7）：已併入 Ch7 的 §2 | `message/`, `utils/mp.py`, `tokenizer/`, `server/api_server.py` | — | ↪ Ch7 |
 | 7 ★ | [mini-rsglang](chapters/07-mini-rsglang/guide.md)（含 Ch6）：Python 前端與 IPC、架構、wire parity、request 旅程、lifecycle FSM、取消、驗證、FINDINGS 與 Phase 8 | `crates/`, `docs/benchmarks/FINDINGS.md` | 2h | ⬜ |
-| 8 | 選題與動工計畫：已用 grilling 決定 → [Phase 8 計畫](plans/2026-10-10-mini-rsglang-phase8.md)（P99 TTFT root cause） | — | — | ✅ |
+| 8 | 選題與動工計畫：已用 grilling 決定 → [Phase 8 計畫](plans/2026-10-10-mini-rsglang-phase8.md)（P99 TTFT root cause）。10/12 已 merge：S1 P99 4868 → 302 ms | — | — | ✅ |
 
 ## 時程
 
@@ -29,9 +29,10 @@
 | 日期 | 內容 |
 |---|---|
 | 10/9（五）1–2h | 環境設定 → Ch0 → Ch1 ✅ |
-| 10/10（六） | 用 grilling 定好 Phase 8 計畫 ✅ → Ch7（併入 Ch6，完整 quiz） |
-| 10/11（日） | Ch2 → Ch3 → Ch4（精簡 quiz，其餘題目標 ⏸ 擱置），Ch5 只讀摘要；晚上 checkpoint；Phase 9 grilling |
-| 10/12（一） | review 並 merge PR、改履歷 |
+| 10/10（六） | 用 grilling 定好 Phase 8 計畫 ✅ → Ch7 講義 ✅ |
+| 10/11（日） | Ch2 講義 ✅（原定的 Ch3、Ch4、Phase 9 grilling 延後） |
+| 10/12（一） | Phase 8 merge ✅（[PR #19](https://github.com/LiyangTseng/mini-rsglang/pull/19)）→ 履歷 → Ch7 quiz |
+| 10/14（二）之後 | Ch2 quiz → Ch3 → Ch4（Ch5 只讀摘要）→ Phase 9 grilling |
 
 ## 實驗（RTX 3050 @ `tw-desktop`，Qwen3-0.6B）
 
