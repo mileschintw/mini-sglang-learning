@@ -92,8 +92,8 @@ Phase 7 的結論是：Rust 在 S1（取消場景）的 P99 TTFT 是 4687 ms，p
 - [x] 確認 #18 的 GPU benchmark 和 FINDINGS v2 都已完成
 - [x] 在 agent session 跑 `/code-review`，處理發現的問題
 - [x] 自己 review PR #19。看得懂、講得出來之後，標成 ready，用 **Create a merge commit** 合併
-- [ ] 改履歷，準備 30 秒的 pitch
-- [ ] Ch7 quiz（含 Q7.11 pitch）
+- [x] 改履歷，準備 30 秒的 pitch
+- [x] Ch7 quiz 第 1 輪（10/14 精簡版；Q7.4–7.8 擱置）＋ Q7.11 pitch 定稿
 
 ### 週二之後
 

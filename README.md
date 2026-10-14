@@ -19,7 +19,7 @@
 | 4 ★ | Scheduler：prefill 優先、token budget、chunked prefill、overlap scheduling | `scheduler/*.py` | 2h | ⬜ |
 | 5 | Engine 與 model forward：attention backend、CUDA graph、sampling、TP（帶過） | `engine/`, `attention/` | 1h | ⬜ |
 | 6 | 前端與 IPC（已併入 Ch7）：已併入 Ch7 的 §2 | `message/`, `utils/mp.py`, `tokenizer/`, `server/api_server.py` | — | ↪ Ch7 |
-| 7 ★ | [mini-rsglang](chapters/07-mini-rsglang/guide.md)（含 Ch6）：Python 前端與 IPC、架構、wire parity、request 旅程、lifecycle FSM、取消、驗證、FINDINGS 與 Phase 8 | `crates/`, `docs/benchmarks/FINDINGS.md` | 2h | ⬜ |
+| 7 ★ | [mini-rsglang](chapters/07-mini-rsglang/guide.md)（含 Ch6）：Python 前端與 IPC、架構、wire parity、request 旅程、lifecycle FSM、取消、驗證、FINDINGS 與 Phase 8 | `crates/`, `docs/benchmarks/FINDINGS.md` | 2h | 🟡 [quiz](chapters/07-mini-rsglang/quiz.md) 第 1 輪部分完成（Q7.4–7.8 擱置），pitch ✅ |
 | 8 | 選題與動工計畫：已用 grilling 決定 → [Phase 8 計畫](plans/2026-10-10-mini-rsglang-phase8.md)（P99 TTFT root cause）。10/12 已 merge：S1 P99 4868 → 302 ms | — | — | ✅ |
 
 ## 時程
@@ -31,8 +31,8 @@
 | 10/9（五）1–2h | 環境設定 → Ch0 → Ch1 ✅ |
 | 10/10（六） | 用 grilling 定好 Phase 8 計畫 ✅ → Ch7 講義 ✅ |
 | 10/11（日） | Ch2 講義 ✅（原定的 Ch3、Ch4、Phase 9 grilling 延後） |
-| 10/12（一） | Phase 8 merge ✅（[PR #19](https://github.com/LiyangTseng/mini-rsglang/pull/19)）→ 履歷 → Ch7 quiz |
-| 10/14（二）之後 | Ch2 quiz → Ch3 → Ch4（Ch5 只讀摘要）→ Phase 9 grilling |
+| 10/12（一） | Phase 8 merge ✅（[PR #19](https://github.com/LiyangTseng/mini-rsglang/pull/19)）→ 履歷 ✅ → Ch7 quiz（部分）✅ |
+| 10/14（二） | career fair ✅ → Ch2 quiz → Ch3 → Phase 9 grilling ＋ 挑 sglang Rust issue（並行）→ Ch4（Ch5 只讀摘要） |
 
 ## 實驗（RTX 3050 @ `tw-desktop`，Qwen3-0.6B）
 
